@@ -111,8 +111,3 @@ pub(crate) struct ExactCoverNode {
     pub(crate) left_index: usize,
     pub(crate) right_index: usize,
 }
-
-pub(crate) enum ExactCoverDirection {
-    Column,
-    Row,
-}

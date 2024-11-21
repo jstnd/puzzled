@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::problem::{ExactCoverColumn, ExactCoverDirection, ExactCoverProblem};
+use super::problem::{ExactCoverColumn, ExactCoverProblem};
 
 pub struct ExactCoverSolver {
     problem: ExactCoverProblem,
@@ -167,4 +167,9 @@ impl ExactCoverSolver {
                 .values()
                 .all(|column| column.is_covered)
     }
+}
+
+enum ExactCoverDirection {
+    Column,
+    Row,
 }
