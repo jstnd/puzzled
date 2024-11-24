@@ -45,14 +45,14 @@ impl ExactCoverSolver {
                 return false;
             }
 
-            for column_index in self.get_indexes(column.header_index, ExactCoverDirection::Column) {
+            for column_index in self.indexes_from(column.header_index, Direction::Column) {
                 self.solution
                     .push(self.problem.nodes.get(column_index).unwrap().name);
 
                 let mut covered_columns = Vec::new();
-                let nodes_to_cover = self.get_nodes_to_cover(column_index);
+                let nodes_to_cover = self.nodes_to_cover(column_index);
 
-                for row_index in self.get_indexes(column_index, ExactCoverDirection::Row) {
+                for row_index in self.indexes_from(column_index, Direction::Row) {
                     let element = self.problem.nodes.get(row_index).unwrap().element;
                     let column = self.problem.columns.get_mut(&element).unwrap();
                     column.is_covered = true;
@@ -60,7 +60,7 @@ impl ExactCoverSolver {
                 }
 
                 for node_index in nodes_to_cover.iter() {
-                    self.cover_node(*node_index);
+                    self.cover(*node_index);
                 }
 
                 if self.search() {
@@ -75,7 +75,7 @@ impl ExactCoverSolver {
                 }
 
                 for node_index in nodes_to_cover.iter().rev() {
-                    self.uncover_node(*node_index);
+                    self.uncover(*node_index);
                 }
             }
         }
@@ -83,20 +83,20 @@ impl ExactCoverSolver {
         false
     }
 
-    fn get_nodes_to_cover(&self, start_index: usize) -> Vec<usize> {
+    fn nodes_to_cover(&self, start_index: usize) -> Vec<usize> {
         let mut node_indexes = HashSet::new();
 
-        for row_index in self.get_indexes(start_index, ExactCoverDirection::Row) {
-            for column_index in self.get_indexes(row_index, ExactCoverDirection::Column) {
+        for row_index in self.indexes_from(start_index, Direction::Row) {
+            for column_index in self.indexes_from(row_index, Direction::Column) {
                 node_indexes.insert(column_index);
-                node_indexes.extend(self.get_indexes(column_index, ExactCoverDirection::Row));
+                node_indexes.extend(self.indexes_from(column_index, Direction::Row));
             }
         }
 
         Vec::from_iter(node_indexes)
     }
 
-    fn get_indexes(&self, start_index: usize, direction: ExactCoverDirection) -> Vec<usize> {
+    fn indexes_from(&self, start_index: usize, direction: Direction) -> Vec<usize> {
         let mut node_indexes = Vec::new();
         let mut current_node_index = start_index;
         let mut current_node = self.problem.nodes.get(current_node_index).unwrap();
@@ -107,8 +107,8 @@ impl ExactCoverSolver {
             }
 
             current_node_index = match direction {
-                ExactCoverDirection::Column => current_node.down_index,
-                ExactCoverDirection::Row => current_node.right_index,
+                Direction::Column => current_node.down_index,
+                Direction::Row => current_node.right_index,
             };
 
             current_node = self.problem.nodes.get(current_node_index).unwrap();
@@ -121,7 +121,7 @@ impl ExactCoverSolver {
         node_indexes
     }
 
-    fn cover_node(&mut self, node_index: usize) {
+    fn cover(&mut self, node_index: usize) {
         self.num_covered_nodes += 1;
 
         let node = self.problem.nodes.get(node_index).unwrap();
@@ -140,7 +140,7 @@ impl ExactCoverSolver {
         self.problem.nodes.get_mut(right_index).unwrap().left_index = left_index;
     }
 
-    fn uncover_node(&mut self, node_index: usize) {
+    fn uncover(&mut self, node_index: usize) {
         self.num_covered_nodes -= 1;
 
         let node = self.problem.nodes.get(node_index).unwrap();
@@ -169,7 +169,7 @@ impl ExactCoverSolver {
     }
 }
 
-enum ExactCoverDirection {
+enum Direction {
     Column,
     Row,
 }
