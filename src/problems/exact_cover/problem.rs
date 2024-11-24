@@ -7,31 +7,31 @@ pub struct ExactCoverProblem {
 }
 
 impl ExactCoverProblem {
-    pub fn add_constraint(&mut self, name: u8, elements: &[usize]) {
-        for element in elements {
-            if !self.columns.contains_key(element) {
-                self.add_column(*element);
+    pub fn add(&mut self, name: u8, constraints: &[usize]) {
+        for constraint in constraints {
+            if !self.columns.contains_key(constraint) {
+                self.add_column(*constraint);
             }
         }
 
-        for (element_index, &element) in elements.iter().enumerate() {
+        for (i, &constraint) in constraints.iter().enumerate() {
             let node_index = self.nodes.len();
 
-            let left_index = if element_index == 0 {
-                node_index + elements.len() - 1
+            let left_index = if i == 0 {
+                node_index + constraints.len() - 1
             } else {
                 node_index - 1
             };
 
-            let right_index = if element_index == elements.len() - 1 {
-                node_index - element_index
+            let right_index = if i == constraints.len() - 1 {
+                node_index - i
             } else {
                 node_index + 1
             };
 
             let node = ExactCoverNode {
                 name,
-                element,
+                constraint,
                 is_header: false,
                 up_index: node_index,
                 down_index: node_index,
@@ -39,15 +39,15 @@ impl ExactCoverProblem {
                 right_index,
             };
 
-            self.append_node(element, node);
+            self.append_node(constraint, node);
         }
     }
 
-    fn add_column(&mut self, element: usize) {
+    fn add_column(&mut self, constraint: usize) {
         let header_index = self.nodes.len();
 
         let column = ExactCoverColumn {
-            element,
+            constraint,
             header_index,
             len: 0,
             is_covered: false,
@@ -55,7 +55,7 @@ impl ExactCoverProblem {
 
         let header = ExactCoverNode {
             name: 0,
-            element,
+            constraint,
             is_header: true,
             up_index: header_index,
             down_index: header_index,
@@ -63,12 +63,12 @@ impl ExactCoverProblem {
             right_index: header_index,
         };
 
-        self.columns.insert(element, column);
+        self.columns.insert(constraint, column);
         self.nodes.push(header);
     }
 
-    fn append_node(&mut self, element: usize, mut node: ExactCoverNode) {
-        let column = self.columns.get_mut(&element).unwrap();
+    fn append_node(&mut self, constraint: usize, mut node: ExactCoverNode) {
+        let column = self.columns.get_mut(&constraint).unwrap();
         column.len += 1;
 
         let node_index = node.down_index;
@@ -95,7 +95,7 @@ impl ExactCoverProblem {
 }
 
 pub(crate) struct ExactCoverColumn {
-    pub(crate) element: usize,
+    pub(crate) constraint: usize,
     pub(crate) header_index: usize,
     pub(crate) len: usize,
     pub(crate) is_covered: bool,
@@ -103,7 +103,7 @@ pub(crate) struct ExactCoverColumn {
 
 pub(crate) struct ExactCoverNode {
     pub(crate) name: u8,
-    pub(crate) element: usize,
+    pub(crate) constraint: usize,
     pub(crate) is_header: bool,
 
     pub(crate) up_index: usize,
