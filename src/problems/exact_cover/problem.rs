@@ -68,13 +68,14 @@ impl ExactCoverProblem {
     }
 
     fn append_node(&mut self, constraint: usize, mut node: ExactCoverNode) {
-        let column = self.columns.get_mut(&constraint).unwrap();
+        let column = self.column_mut(constraint);
         column.len += 1;
 
         let node_index = node.down_index;
 
         //
-        let header_node = self.nodes.get_mut(column.header_index).unwrap();
+        let header_index = column.header_index;
+        let header_node = self.node_mut(header_index);
 
         //
         let last_node_index = header_node.up_index;
@@ -83,14 +84,30 @@ impl ExactCoverProblem {
         header_node.up_index = node_index;
 
         //
-        let last_node = self.nodes.get_mut(last_node_index).unwrap();
+        let last_node = self.node_mut(last_node_index);
         last_node.down_index = node_index;
 
         //
         node.up_index = last_node_index;
-        node.down_index = column.header_index;
+        node.down_index = header_index;
 
         self.nodes.push(node);
+    }
+
+    pub(crate) fn column(&self, constraint: usize) -> &ExactCoverColumn {
+        self.columns.get(&constraint).unwrap()
+    }
+
+    pub(crate) fn column_mut(&mut self, constraint: usize) -> &mut ExactCoverColumn {
+        self.columns.get_mut(&constraint).unwrap()
+    }
+
+    pub(crate) fn node(&self, node_index: usize) -> &ExactCoverNode {
+        self.nodes.get(node_index).unwrap()
+    }
+
+    pub(crate) fn node_mut(&mut self, node_index: usize) -> &mut ExactCoverNode {
+        self.nodes.get_mut(node_index).unwrap()
     }
 }
 

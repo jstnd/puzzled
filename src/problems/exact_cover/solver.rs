@@ -39,7 +39,7 @@ impl ExactCoverSolver {
             columns.iter().map(|column| column.constraint).collect();
 
         for constraint in column_constraints {
-            let column = self.problem.columns.get(&constraint).unwrap();
+            let column = self.problem.column(constraint);
 
             // no solution exists in this branch
             if column.len == 0 {
@@ -47,15 +47,14 @@ impl ExactCoverSolver {
             }
 
             for column_index in self.indexes_from(column.header_index, Direction::Column) {
-                self.solution
-                    .push(self.problem.nodes.get(column_index).unwrap().name);
+                self.solution.push(self.problem.node(column_index).name);
 
                 let mut covered_columns = Vec::new();
                 let nodes_to_cover = self.nodes_to_cover(column_index);
 
                 for row_index in self.indexes_from(column_index, Direction::Row) {
-                    let constraint = self.problem.nodes.get(row_index).unwrap().constraint;
-                    let column = self.problem.columns.get_mut(&constraint).unwrap();
+                    let constraint = self.problem.node(row_index).constraint;
+                    let column = self.problem.column_mut(constraint);
                     column.is_covered = true;
                     covered_columns.push(constraint);
                 }
@@ -72,11 +71,7 @@ impl ExactCoverSolver {
 
                 // uncover everything
                 for constraint in covered_columns {
-                    self.problem
-                        .columns
-                        .get_mut(&constraint)
-                        .unwrap()
-                        .is_covered = false;
+                    self.problem.column_mut(constraint).is_covered = false;
                 }
 
                 for node_index in nodes_to_cover.iter().rev() {
@@ -104,7 +99,7 @@ impl ExactCoverSolver {
     fn indexes_from(&self, start_index: usize, direction: Direction) -> Vec<usize> {
         let mut node_indexes = Vec::new();
         let mut current_node_index = start_index;
-        let mut current_node = self.problem.nodes.get(current_node_index).unwrap();
+        let mut current_node = self.problem.node(current_node_index);
 
         loop {
             if !current_node.is_header {
@@ -116,7 +111,7 @@ impl ExactCoverSolver {
                 Direction::Row => current_node.right_index,
             };
 
-            current_node = self.problem.nodes.get(current_node_index).unwrap();
+            current_node = self.problem.node(current_node_index);
 
             if current_node_index == start_index {
                 break;
@@ -129,7 +124,7 @@ impl ExactCoverSolver {
     fn cover(&mut self, node_index: usize) {
         self.num_covered_nodes += 1;
 
-        let node = self.problem.nodes.get(node_index).unwrap();
+        let node = self.problem.node(node_index);
         let (constraint, up_index, down_index, left_index, right_index) = (
             node.constraint,
             node.up_index,
@@ -138,17 +133,17 @@ impl ExactCoverSolver {
             node.right_index,
         );
 
-        self.problem.columns.get_mut(&constraint).unwrap().len -= 1;
-        self.problem.nodes.get_mut(up_index).unwrap().down_index = down_index;
-        self.problem.nodes.get_mut(down_index).unwrap().up_index = up_index;
-        self.problem.nodes.get_mut(left_index).unwrap().right_index = right_index;
-        self.problem.nodes.get_mut(right_index).unwrap().left_index = left_index;
+        self.problem.column_mut(constraint).len -= 1;
+        self.problem.node_mut(up_index).down_index = down_index;
+        self.problem.node_mut(down_index).up_index = up_index;
+        self.problem.node_mut(left_index).right_index = right_index;
+        self.problem.node_mut(right_index).left_index = left_index;
     }
 
     fn uncover(&mut self, node_index: usize) {
         self.num_covered_nodes -= 1;
 
-        let node = self.problem.nodes.get(node_index).unwrap();
+        let node = self.problem.node(node_index);
         let (constraint, up_index, down_index, left_index, right_index) = (
             node.constraint,
             node.up_index,
@@ -157,11 +152,11 @@ impl ExactCoverSolver {
             node.right_index,
         );
 
-        self.problem.columns.get_mut(&constraint).unwrap().len += 1;
-        self.problem.nodes.get_mut(up_index).unwrap().down_index = node_index;
-        self.problem.nodes.get_mut(down_index).unwrap().up_index = node_index;
-        self.problem.nodes.get_mut(left_index).unwrap().right_index = node_index;
-        self.problem.nodes.get_mut(right_index).unwrap().left_index = node_index;
+        self.problem.column_mut(constraint).len += 1;
+        self.problem.node_mut(up_index).down_index = node_index;
+        self.problem.node_mut(down_index).up_index = node_index;
+        self.problem.node_mut(left_index).right_index = node_index;
+        self.problem.node_mut(right_index).left_index = node_index;
     }
 
     fn is_solved(&self) -> bool {
