@@ -1,12 +1,143 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
-use super::problem::{ExactCoverColumn, ExactCoverProblem};
+#[derive(Default)]
+pub struct ExactCoverProblem {
+    columns: HashMap<usize, ExactCoverColumn>,
+    nodes: Vec<ExactCoverNode>,
+}
 
-pub struct ExactCoverSolver {
+struct ExactCoverColumn {
+    constraint: usize,
+    header_index: usize,
+    len: usize,
+    is_covered: bool,
+}
+
+struct ExactCoverNode {
+    name: u8,
+    constraint: usize,
+    is_header: bool,
+
+    up_index: usize,
+    down_index: usize,
+    left_index: usize,
+    right_index: usize,
+}
+
+impl ExactCoverProblem {
+    pub fn add(&mut self, name: u8, constraints: &[usize]) {
+        for constraint in constraints {
+            if !self.columns.contains_key(constraint) {
+                self.add_column(*constraint);
+            }
+        }
+
+        for (i, &constraint) in constraints.iter().enumerate() {
+            let node_index = self.nodes.len();
+
+            let left_index = if i == 0 {
+                node_index + constraints.len() - 1
+            } else {
+                node_index - 1
+            };
+
+            let right_index = if i == constraints.len() - 1 {
+                node_index - i
+            } else {
+                node_index + 1
+            };
+
+            let node = ExactCoverNode {
+                name,
+                constraint,
+                is_header: false,
+                up_index: node_index,
+                down_index: node_index,
+                left_index,
+                right_index,
+            };
+
+            self.append_node(constraint, node);
+        }
+    }
+
+    pub fn solve(self) -> Vec<u8> {
+        ExactCoverSolver::new(self).solve()
+    }
+
+    fn add_column(&mut self, constraint: usize) {
+        let header_index = self.nodes.len();
+
+        let column = ExactCoverColumn {
+            constraint,
+            header_index,
+            len: 0,
+            is_covered: false,
+        };
+
+        let header = ExactCoverNode {
+            name: 0,
+            constraint,
+            is_header: true,
+            up_index: header_index,
+            down_index: header_index,
+            left_index: header_index,
+            right_index: header_index,
+        };
+
+        self.columns.insert(constraint, column);
+        self.nodes.push(header);
+    }
+
+    fn append_node(&mut self, constraint: usize, mut node: ExactCoverNode) {
+        let column = self.column_mut(constraint);
+        column.len += 1;
+
+        let node_index = node.down_index;
+
+        //
+        let header_index = column.header_index;
+        let header_node = self.node_mut(header_index);
+
+        //
+        let last_node_index = header_node.up_index;
+
+        //
+        header_node.up_index = node_index;
+
+        //
+        let last_node = self.node_mut(last_node_index);
+        last_node.down_index = node_index;
+
+        //
+        node.up_index = last_node_index;
+        node.down_index = header_index;
+
+        self.nodes.push(node);
+    }
+
+    fn column(&self, constraint: usize) -> &ExactCoverColumn {
+        self.columns.get(&constraint).unwrap()
+    }
+
+    fn column_mut(&mut self, constraint: usize) -> &mut ExactCoverColumn {
+        self.columns.get_mut(&constraint).unwrap()
+    }
+
+    fn node(&self, node_index: usize) -> &ExactCoverNode {
+        self.nodes.get(node_index).unwrap()
+    }
+
+    fn node_mut(&mut self, node_index: usize) -> &mut ExactCoverNode {
+        self.nodes.get_mut(node_index).unwrap()
+    }
+}
+
+struct ExactCoverSolver {
     problem: ExactCoverProblem,
 
     num_covered_nodes: usize,
-    pub solution: Vec<u8>,
+    solution: Vec<u8>,
 }
 
 impl ExactCoverSolver {
@@ -18,8 +149,9 @@ impl ExactCoverSolver {
         }
     }
 
-    pub fn solve(&mut self) {
+    pub fn solve(&mut self) -> Vec<u8> {
         self.search();
+        self.solution.clone()
     }
 
     fn search(&mut self) -> bool {
