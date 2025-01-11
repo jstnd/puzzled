@@ -1,19 +1,21 @@
 use std::collections::{HashMap, HashSet};
 
-#[derive(Default)]
-pub struct ExactCoverProblem {
-    columns: HashMap<usize, ExactCoverColumn>,
-    nodes: Vec<ExactCoverNode>,
+#[derive(Debug, Default)]
+pub struct ExactCover {
+    columns: HashMap<usize, Column>,
+    nodes: Vec<Node>,
 }
 
-struct ExactCoverColumn {
+#[derive(Debug)]
+struct Column {
     constraint: usize,
     header_index: usize,
     len: usize,
     is_covered: bool,
 }
 
-struct ExactCoverNode {
+#[derive(Debug)]
+struct Node {
     name: u8,
     constraint: usize,
     is_header: bool,
@@ -24,7 +26,13 @@ struct ExactCoverNode {
     right_index: usize,
 }
 
-impl ExactCoverProblem {
+impl ExactCover {
+    pub fn new() -> Self {
+        Self {
+            ..Default::default()
+        }
+    }
+
     pub fn add(&mut self, name: u8, constraints: &[usize]) {
         for constraint in constraints {
             if !self.columns.contains_key(constraint) {
@@ -47,7 +55,7 @@ impl ExactCoverProblem {
                 node_index + 1
             };
 
-            let node = ExactCoverNode {
+            let node = Node {
                 name,
                 constraint,
                 is_header: false,
@@ -61,21 +69,21 @@ impl ExactCoverProblem {
         }
     }
 
-    pub fn solve(self) -> Vec<u8> {
+    pub fn solve(&mut self) -> Vec<u8> {
         ExactCoverSolver::new(self).solve()
     }
 
     fn add_column(&mut self, constraint: usize) {
         let header_index = self.nodes.len();
 
-        let column = ExactCoverColumn {
+        let column = Column {
             constraint,
             header_index,
             len: 0,
             is_covered: false,
         };
 
-        let header = ExactCoverNode {
+        let header = Node {
             name: 0,
             constraint,
             is_header: true,
@@ -89,7 +97,7 @@ impl ExactCoverProblem {
         self.nodes.push(header);
     }
 
-    fn append_node(&mut self, constraint: usize, mut node: ExactCoverNode) {
+    fn append_node(&mut self, constraint: usize, mut node: Node) {
         let column = self.column_mut(constraint);
         column.len += 1;
 
@@ -116,61 +124,62 @@ impl ExactCoverProblem {
         self.nodes.push(node);
     }
 
-    fn column(&self, constraint: usize) -> &ExactCoverColumn {
-        self.columns.get(&constraint).unwrap()
-    }
-
-    fn column_mut(&mut self, constraint: usize) -> &mut ExactCoverColumn {
-        self.columns.get_mut(&constraint).unwrap()
-    }
-
-    fn node(&self, node_index: usize) -> &ExactCoverNode {
-        self.nodes.get(node_index).unwrap()
-    }
-
-    fn node_mut(&mut self, node_index: usize) -> &mut ExactCoverNode {
-        self.nodes.get_mut(node_index).unwrap()
-    }
-}
-
-struct ExactCoverSolver {
-    problem: ExactCoverProblem,
-
-    num_covered_nodes: usize,
-    solution: Vec<u8>,
-}
-
-impl ExactCoverSolver {
-    pub fn new(problem: ExactCoverProblem) -> Self {
-        Self {
-            problem,
-            solution: Vec::new(),
-            num_covered_nodes: 0,
-        }
-    }
-
-    pub fn solve(&mut self) -> Vec<u8> {
-        self.search();
-        self.solution.clone()
-    }
-
-    fn search(&mut self) -> bool {
-        if self.is_solved() {
-            return true;
-        }
-
-        let mut columns: Vec<&ExactCoverColumn> = self
-            .problem
+    fn sorted_columns(&mut self) -> Vec<usize> {
+        let mut columns: Vec<&Column> = self
             .columns
             .values()
             .filter(|column| !column.is_covered)
             .collect();
 
-        columns.sort_by_key(|column| column.len);
-        let column_constraints: Vec<usize> =
-            columns.iter().map(|column| column.constraint).collect();
+        columns.sort_unstable_by_key(|column| (column.len, column.constraint));
+        columns.iter().map(|column| column.constraint).collect()
+    }
 
-        for constraint in column_constraints {
+    fn column(&self, constraint: usize) -> &Column {
+        self.columns.get(&constraint).unwrap()
+    }
+
+    fn column_mut(&mut self, constraint: usize) -> &mut Column {
+        self.columns.get_mut(&constraint).unwrap()
+    }
+
+    fn node(&self, node_index: usize) -> &Node {
+        self.nodes.get(node_index).unwrap()
+    }
+
+    fn node_mut(&mut self, node_index: usize) -> &mut Node {
+        self.nodes.get_mut(node_index).unwrap()
+    }
+}
+
+struct ExactCoverSolver<'a> {
+    problem: &'a mut ExactCover,
+    num_covered_nodes: usize,
+}
+
+impl<'a> ExactCoverSolver<'a> {
+    pub fn new(problem: &'a mut ExactCover) -> Self {
+        Self {
+            problem,
+            num_covered_nodes: 0,
+        }
+    }
+
+    pub fn solve(&mut self) -> Vec<u8> {
+        let mut solution = Vec::new();
+
+        self.solve_internal(&mut solution);
+        self.reset();
+
+        solution
+    }
+
+    fn solve_internal(&mut self, solution: &mut Vec<u8>) -> bool {
+        if self.is_solved() {
+            return true;
+        }
+
+        for constraint in self.problem.sorted_columns() {
             let column = self.problem.column(constraint);
 
             // no solution exists in this branch
@@ -179,7 +188,7 @@ impl ExactCoverSolver {
             }
 
             for column_index in self.indexes_from(column.header_index, Direction::Column) {
-                self.solution.push(self.problem.node(column_index).name);
+                solution.push(self.problem.node(column_index).name);
 
                 let mut covered_columns = Vec::new();
                 let nodes_to_cover = self.nodes_to_cover(column_index);
@@ -195,11 +204,11 @@ impl ExactCoverSolver {
                     self.cover(*node_index);
                 }
 
-                if self.search() {
+                if self.solve_internal(solution) {
                     return true;
                 }
 
-                self.solution.pop();
+                solution.pop();
 
                 // uncover everything
                 for constraint in covered_columns {
@@ -299,6 +308,8 @@ impl ExactCoverSolver {
                 .values()
                 .all(|column| column.is_covered)
     }
+
+    fn reset(&mut self) {}
 }
 
 enum Direction {
